@@ -70,7 +70,7 @@ python main.py --ingest --reset
 ### Ask a text question (no microphone needed)
 
 ```bash
-python main.py --query "Who is Juliet and how is she introduced?"
+python main.py --query "Who is the main character and how are they introduced?"
 ```
 
 ### Live voice loop
@@ -84,7 +84,7 @@ Speak your question when prompted. Press `Ctrl-C` to quit.
 ### Replay a saved query file
 
 ```bash
-python main.py --audio test_queries/q01_juliet_identity.wav
+python main.py --audio test_queries/q01_character_intro.wav
 ```
 
 ### Generate test query WAV files
