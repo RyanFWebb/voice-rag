@@ -1,0 +1,29 @@
+# Voice RAG — Python dependencies
+# Install: pip install -r requirements.txt
+#
+# Python version: 3.10, 3.11, or 3.12 required.
+# Python 3.13 is NOT supported — kokoro's dependency chain (spacy → blis)
+# does not have pre-built wheels for 3.13 and fails to compile.
+#   Check your version:  python --version
+#   Install 3.11 (Mac):  brew install python@3.11
+#                        python3.11 -m venv .venv
+#                        source .venv/bin/activate
+#
+# External system dependencies (not pip-installable):
+#   macOS:   brew install espeak-ng portaudio ffmpeg
+#   Windows: install espeak-ng from https://github.com/espeak-ng/espeak-ng/releases
+#            install ffmpeg from https://ffmpeg.org/download.html
+#            portaudio is bundled with the sounddevice wheel on Windows
+
+# If this pipeline doesn't work, then libraries can be loaded as the user goes on their first run
+
+faster-whisper
+kokoro[en]
+soundfile
+sounddevice
+numpy
+requests
+chromadb
+langchain-text-splitters
+pymupdf
+pandas

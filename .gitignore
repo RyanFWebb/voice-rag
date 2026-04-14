@@ -1,0 +1,37 @@
+# Vector store — regenerate with: python main.py --ingest
+chroma_db/
+
+# Documents — may be large or copyrighted; users add their own
+documents/*
+!documents/.gitkeep
+
+# Generated audio
+*.wav
+test_queries/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Jupyter (if anyone opens a notebook locally)
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
