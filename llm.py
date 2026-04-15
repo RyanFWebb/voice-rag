@@ -33,7 +33,8 @@ def generate(prompt: str, model: str = GEN_MODEL) -> str:
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.0, "top_k": 20},
+            "keep_alive": "30m",
+            "options": {"temperature": 0.0, "top_k": 20, "num_ctx": 4096},
         },
         timeout=OLLAMA_TIMEOUT,
     )
@@ -56,7 +57,7 @@ def embed(texts: list[str] | str, model: str = EMBED_MODEL) -> list[list[float]]
         batch = texts[i : i + EMBED_BATCH]
         r = requests.post(
             f"{OLLAMA_BASE_URL}/api/embed",
-            json={"model": model, "input": batch},
+            json={"model": model, "input": batch, "keep_alive": "30m"},
             timeout=OLLAMA_TIMEOUT,
         )
         r.raise_for_status()
