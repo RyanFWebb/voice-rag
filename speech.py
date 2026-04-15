@@ -23,6 +23,7 @@ from config import (
     WHISPER_MODEL_SIZE,
     WHISPER_DEVICE,
     WHISPER_COMPUTE,
+    WHISPER_LANGUAGE,
     TTS_VOICE,
     TTS_SPEED,
     TTS_SAMPLE_RATE,
@@ -83,7 +84,7 @@ def transcribe(audio_path: str) -> str:
     """
     if _whisper_model is None:
         load_models()
-    segments, _ = _whisper_model.transcribe(audio_path)
+    segments, _ = _whisper_model.transcribe(audio_path, language=WHISPER_LANGUAGE)
     return " ".join(seg.text.strip() for seg in segments).strip()
 
 

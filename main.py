@@ -60,6 +60,8 @@ from config import (
     TTS_VOICE,
     TTS_SPEED,
     TTS_SAMPLE_RATE,
+    WHISPER_DEVICE,
+    WHISPER_COMPUTE,
 )
 from ingest import load_and_chunk_all
 
@@ -75,6 +77,9 @@ def cmd_check():
     supported = (_MAJOR, _MINOR) in ((3, 10), (3, 11), (3, 12))
     tick = "\u2713" if supported else "\u2717  (3.10-3.12 required -- see requirements.txt)"
     print(f"Python: {py_ver}  {tick}")
+
+    # Whisper acceleration
+    print(f"\nWhisper: device={WHISPER_DEVICE}, compute={WHISPER_COMPUTE}")
 
     # External tools
     print("\nExternal tools:")
@@ -120,13 +125,13 @@ def cmd_query(question: str):
         sys.exit(1)
 
     print(f"Query: {question}\n")
-    t0 = time.time()
     result = rag.generate(question, collection, n_results=N_RESULTS)
-    elapsed = time.time() - t0
 
     print("Retrieved chunks:")
     rag.print_contexts(result["contexts"])
-    print(f"Answer ({elapsed:.1f}s):")
+    print()
+    rag.print_timings(result["timings"])
+    print(f"\nAnswer:")
     print(result["answer"])
 
 

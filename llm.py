@@ -29,7 +29,12 @@ def generate(prompt: str, model: str = GEN_MODEL) -> str:
     """Send a prompt to Ollama and return the response string."""
     r = requests.post(
         f"{OLLAMA_BASE_URL}/api/generate",
-        json={"model": model, "prompt": prompt, "stream": False},
+        json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.0, "top_k": 20},
+        },
         timeout=OLLAMA_TIMEOUT,
     )
     r.raise_for_status()

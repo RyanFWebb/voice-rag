@@ -34,7 +34,7 @@ sudo apt install espeak-ng portaudio19-dev ffmpeg
 
 ```bash
 ollama pull gemma3:4b
-ollama pull nomic-embed-text
+ollama pull mxbai-embed-large
 ```
 
 ### 3. Python dependencies
@@ -102,12 +102,17 @@ All tunable parameters are in `config.py`:
 | Parameter | Default | Description |
 |---|---|---|
 | `WHISPER_MODEL_SIZE` | `base` | STT model size (tiny/base/small/medium/large) |
+| `WHISPER_DEVICE` | auto-detected | `cuda` if GPU available, else `cpu` |
+| `WHISPER_LANGUAGE` | `en` | Language code (skips detection for speed) |
 | `GEN_MODEL` | `gemma3:4b` | Ollama generation model |
-| `EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model |
+| `EMBED_MODEL` | `mxbai-embed-large` | Ollama embedding model |
 | `TTS_VOICE` | `af_heart` | Kokoro voice ID |
 | `CHUNK_SIZE` | `1000` | Characters per chunk (~200 words) |
 | `CHUNK_OVERLAP` | `150` | Overlap between chunks |
-| `N_RESULTS` | `5` | Chunks retrieved per query |
+| `N_RETRIEVE` | `15` | Initial candidates from ChromaDB |
+| `N_RESULTS` | `5` | Final chunks after reranking |
+| `RERANK_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder for reranking |
+| `NEIGHBOR_WINDOW` | `1` | Chunks to fetch on each side of a hit |
 | `RECORD_SECONDS` | `7` | Mic recording duration |
 
 ---

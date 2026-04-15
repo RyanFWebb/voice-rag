@@ -4,14 +4,28 @@ Edit this file to change models, paths, and tuning parameters.
 """
 
 import platform
+import shutil
+
+def _detect_gpu() -> tuple[str, str]:
+    """Return (device, compute_type) — prefer CUDA if available."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda", "float16"
+    except ImportError:
+        pass
+    return "cpu", "int8"
+
+_WHISPER_DEVICE, _WHISPER_COMPUTE = _detect_gpu()
 
 # Models
-WHISPER_MODEL_SIZE  = "base"          # tiny | base | small | medium | large
-WHISPER_COMPUTE     = "int8"          # int8 (CPU) | float16 (GPU)
-WHISPER_DEVICE      = "cpu"
+WHISPER_MODEL_SIZE  = "base"              # tiny | base | small | medium | large
+WHISPER_COMPUTE     = _WHISPER_COMPUTE    # int8 (CPU) | float16 (GPU)
+WHISPER_DEVICE      = _WHISPER_DEVICE     # auto-detected: cpu or cuda
+WHISPER_LANGUAGE    = "en"                # skip language detection → faster + more accurate
 
 GEN_MODEL   = "gemma3:4b"            # any model pulled in Ollama
-EMBED_MODEL = "nomic-embed-text"     # must be pulled in Ollama
+EMBED_MODEL = "mxbai-embed-large"    # must be pulled in Ollama
 
 TTS_VOICE   = "af_heart"             # Kokoro voice ID
 TTS_SPEED   = 1.0
@@ -30,8 +44,15 @@ CHUNK_SIZE    = 1000   # characters (~200 words)
 CHUNK_OVERLAP = 150
 
 # Retrieval
-N_RESULTS   = 5
+N_RESULTS   = 3
+N_RETRIEVE  = 10       # initial candidates before reranking
 EMBED_BATCH = 32       # chunks per Ollama embed request
+
+# Reranking
+RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+# Chunk expansion — fetch N neighbors on each side of a retrieved chunk
+NEIGHBOR_WINDOW = 1   # 1 = include 1 chunk before + 1 after each hit
 
 # Recording
 RECORD_SECONDS = 7
