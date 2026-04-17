@@ -45,7 +45,7 @@ CHUNK_OVERLAP = 150
 
 # Retrieval
 N_RESULTS   = 3
-N_RETRIEVE  = 10       # initial candidates before reranking
+N_RETRIEVE  = 20       # initial candidates before reranking
 EMBED_BATCH = 32       # chunks per Ollama embed request
 
 # Reranking

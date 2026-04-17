@@ -119,9 +119,10 @@ def expand_neighbors(
     if window == 0 or not contexts:
         return contexts
 
-    # Build set of IDs we need to fetch
+    # Build set of IDs we need to fetch. Overlapping windows (e.g. two reranked
+    # hits 2 chunks apart) can target the same neighbor — dedupe via a set.
     existing = {(c["source"], c["chunk_index"]): c for c in contexts}
-    ids_to_fetch = []
+    fetch_set = set()
 
     for ctx in contexts:
         source = ctx["source"]
@@ -130,7 +131,9 @@ def expand_neighbors(
             neighbor_idx = idx + offset
             if neighbor_idx < 0 or (source, neighbor_idx) in existing:
                 continue
-            ids_to_fetch.append((source, neighbor_idx))
+            fetch_set.add((source, neighbor_idx))
+
+    ids_to_fetch = list(fetch_set)
 
     if not ids_to_fetch:
         return sorted(contexts, key=lambda c: (c["source"], c["chunk_index"]))
