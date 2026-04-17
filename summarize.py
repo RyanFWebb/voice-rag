@@ -84,6 +84,89 @@ def _strip_preamble(text: str) -> str:
     return _PREAMBLE_RE.sub("", text, count=1).strip()
 
 
+# Document targeting for multi-doc summarization queries
+#
+# When more than one document is cached, a query like "summarize the hamlet book"
+# should return only the Hamlet summary, not all of them. We score each source
+# filename against the query's content tokens and pick the winner, falling back
+# to "return all" when the query is generic ("summarize everything") or when no
+# filename tokens match.
+
+# Query phrasings that explicitly ask for every document (override targeting).
+_ALL_DOCS_RE = re.compile(
+    r"\b(all|every|each|both)\s+(books?|documents?|docs?|pdfs?|texts?|files?|stor(?:ies|y))\b",
+    re.IGNORECASE,
+)
+
+# Tokens to drop from the query before comparing to filenames — they carry no
+# identifying information about which document is being requested.
+_QUERY_STOPWORDS = frozenset({
+    "summarize", "summarise", "summary", "summaries",
+    "overview", "gist", "tldr", "abstract", "synopsis",
+    "main", "key", "points", "ideas", "themes", "takeaways",
+    "what", "whats", "is", "was", "are", "were",
+    "this", "that", "these", "those", "the",
+    "book", "books", "document", "documents", "doc", "docs",
+    "pdf", "pdfs", "text", "texts", "story", "stories", "file", "files",
+    "about", "describe", "cover", "covers", "say", "says",
+    "please", "give", "tell", "show",
+    "and", "for", "with", "from", "into",
+})
+
+# Filename tokens that don't identify the document (format markers, language
+# tags, common source-repo prefixes, etc.).
+_SOURCE_STOPWORDS = frozenset({
+    "gutenberg", "pdf", "txt", "epub", "doc", "docx", "html", "htm",
+    "book", "document", "text", "story",
+    "the", "and",
+    "ebook", "ebooks", "vol", "volume", "part", "chapter",
+})
+
+
+def _tokenize(text: str, stopwords: frozenset[str]) -> set[str]:
+    """Return lowercased alphabetic tokens >= 3 chars that aren't in stopwords."""
+    return {t for t in re.findall(r"[A-Za-z]{3,}", text.lower()) if t not in stopwords}
+
+
+def _source_tokens(source: str) -> set[str]:
+    """Extract identifying tokens from a source filename (stem, separators split)."""
+    stem = re.sub(r"\.(pdf|txt|md|epub|docx?|html?)$", "", source, flags=re.IGNORECASE)
+    return _tokenize(stem, _SOURCE_STOPWORDS)
+
+
+def _select_target(question: str, records: list[dict]) -> list[dict]:
+    """
+    Return the subset of cached summary records that the question refers to.
+
+    Resolution order:
+      1. If only one record exists, return it (nothing to pick).
+      2. If the query explicitly asks for "all/every/each/both" docs, return all.
+      3. Score each source's filename tokens against the query's content tokens.
+         Clear winner (more matches than runner-up) → return just that record.
+      4. Tie at the top score → return all tied records.
+      5. No matches anywhere → return all (safe fallback; the LLM didn't name a doc).
+    """
+    if len(records) <= 1:
+        return records
+
+    if _ALL_DOCS_RE.search(question):
+        return records
+
+    q_tokens = _tokenize(question, _QUERY_STOPWORDS)
+    if not q_tokens:
+        return records
+
+    scored = [(len(q_tokens & _source_tokens(r["source"])), r) for r in records]
+    scored.sort(key=lambda x: -x[0])
+
+    top_score = scored[0][0]
+    if top_score == 0:
+        return records  # query doesn't mention any filename token
+
+    tied = [r for score, r in scored if score == top_score]
+    return tied  # one element if clear winner, multiple if tied
+
+
 # Prompt templates
 
 _MAP_PROMPT = """\
@@ -341,6 +424,10 @@ def answer_summarization_query(question: str) -> dict | None:
     summaries. Returns None if no summaries are cached (caller should fall
     back to normal RAG).
 
+    In a multi-doc setup, natural-language targeting picks which summaries
+    to return: "summarize the hamlet book" -> only Hamlet's summary, even
+    if Romeo and Juliet is also ingested. See _select_target for details.
+
     Returns a dict shaped like rag.generate()'s output so the voice loop
     and --query path can consume it uniformly.
     """
@@ -348,11 +435,15 @@ def answer_summarization_query(question: str) -> dict | None:
     if not records:
         return None
 
-    if len(records) == 1:
-        r = records[0]
-        answer = r["summary"]
+    selected = _select_target(question, records)
+    if len(selected) < len(records):
+        picked = ", ".join(r["source"] for r in selected)
+        print(f"  [summary] targeting {len(selected)}/{len(records)} docs: {picked}")
+
+    if len(selected) == 1:
+        answer = selected[0]["summary"]
     else:
-        answer = "\n\n".join(f"{r['source']}:\n{r['summary']}" for r in records)
+        answer = "\n\n".join(f"{r['source']}:\n{r['summary']}" for r in selected)
 
     # Shape the response to match rag.generate() so callers don't branch.
     contexts = [
@@ -365,7 +456,7 @@ def answer_summarization_query(question: str) -> dict | None:
             "distance":    None,
             "summary":     True,
         }
-        for r in records
+        for r in selected
     ]
     return {
         "question": question,
