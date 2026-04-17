@@ -35,6 +35,7 @@ TTS_SAMPLE_RATE = 24000
 DOCUMENTS_DIR   = "./documents"
 CHROMA_PATH     = "./chroma_db"
 TEST_QUERY_DIR  = "./test_queries"
+SUMMARY_CACHE_DIR = "./summaries"
 
 # ChromaDB
 COLLECTION_NAME = "rag_documents"
@@ -53,6 +54,13 @@ RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 # Chunk expansion — fetch N neighbors on each side of a retrieved chunk
 NEIGHBOR_WINDOW = 1   # 1 = include 1 chunk before + 1 after each hit
+
+# Summarization (map-reduce over document chunks at ingestion time)
+SUMMARY_MAP_BATCH    = 5    # chunks per section summary (map stage)
+SUMMARY_REDUCE_BATCH = 40   # section summaries fed to final reduce directly
+                            # (larger = fewer intermediate folds = less detail loss)
+SUMMARY_MODEL        = GEN_MODEL  # reuse the generation model by default
+SUMMARY_CTX          = 8192       # num_ctx for reduce calls (handles bigger batches)
 
 # Recording
 RECORD_SECONDS = 7

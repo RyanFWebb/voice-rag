@@ -14,6 +14,7 @@ import time
 
 import vector_store
 import llm
+import summarize
 from sentence_transformers import CrossEncoder
 from config import N_RESULTS, N_RETRIEVE, GEN_MODEL, RERANK_MODEL, NEIGHBOR_WINDOW
 
@@ -79,7 +80,14 @@ def generate(
     """
     Retrieve relevant chunks for question, then generate a grounded answer.
 
-    Three-stage retrieval:
+    Summarization queries ("summarize the document", "what is this about?")
+    bypass retrieval entirely and return the pre-computed document summary
+    from the on-disk cache. This avoids the classic RAG failure mode where
+    a broad query retrieves only the 3 chunks most similar to the phrase
+    "summarize the document" rather than chunks representative of the whole
+    text. If no cached summary exists, we fall through to normal retrieval.
+
+    Three-stage retrieval (when not summarizing):
       1. Fetch n_retrieve candidates from ChromaDB (fast cosine similarity)
       2. Rerank with cross-encoder, keep top n_results
       3. Expand with ±neighbor_window adjacent chunks, sorted by document order
@@ -89,7 +97,16 @@ def generate(
         answer    (str)
         contexts  (list[dict])
         timings   (dict)  — stage-by-stage latency breakdown
+        route     (str)   — "summary_cache" or "rag" (debug hint)
     """
+    if summarize.is_summarization_query(question):
+        t0 = time.time()
+        summary_result = summarize.answer_summarization_query(question)
+        if summary_result is not None:
+            summary_result["timings"] = {"summary_lookup": time.time() - t0}
+            return summary_result
+        print("  (summarization query but no cached summary — falling back to RAG)")
+
     timings = {}
 
     t0 = time.time()
@@ -117,7 +134,13 @@ def generate(
     answer = llm.generate(prompt, model=model)
     timings["llm"] = time.time() - t0
 
-    return {"question": question, "answer": answer, "contexts": contexts, "timings": timings}
+    return {
+        "question": question,
+        "answer":   answer,
+        "contexts": contexts,
+        "timings":  timings,
+        "route":    "rag",
+    }
 
 
 def print_contexts(contexts: list[dict]) -> None:
@@ -125,7 +148,8 @@ def print_contexts(contexts: list[dict]) -> None:
     for i, ctx in enumerate(contexts, 1):
         pages = ", ".join(str(p) for p in ctx["pages"]) if ctx["pages"] else "N/A"
         is_neighbor = ctx.get("neighbor", False)
-        tag = " [neighbor]" if is_neighbor else ""
+        is_summary = ctx.get("summary", False)
+        tag = " [summary]" if is_summary else (" [neighbor]" if is_neighbor else "")
         print(f"  [{i}] {ctx['source']}{tag}")
         score_parts = []
         if ctx.get("distance") is not None:
