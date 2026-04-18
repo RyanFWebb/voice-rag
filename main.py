@@ -133,6 +133,8 @@ def cmd_query(question: str):
     rag.print_timings(result["timings"])
     print(f"\nAnswer:")
     print(result["answer"])
+    print("\nSources:")
+    rag.print_sources(result["contexts"])
 
 
 def cmd_voice(audio_input: str | None = None):
@@ -185,13 +187,15 @@ def cmd_voice(audio_input: str | None = None):
             rag_time = time.time() - t0
             print(f"\nAnswer ({rag_time:.1f}s):")
             print(result["answer"])
+            print("\nSources:")
+            rag.print_sources(result["contexts"])
             print("\nRetrieved chunks:")
             rag.print_contexts(result["contexts"])
 
-            # Step 4: TTS
+            # Step 4: TTS (strip [N] citations so they don't get spoken)
             print("Speaking answer...")
             t0 = time.time()
-            speech.speak(result["answer"], output_path="rag_voice_reply.wav")
+            speech.speak(rag.strip_citations(result["answer"]), output_path="rag_voice_reply.wav")
             tts_time = time.time() - t0
             print(f"TTS done ({tts_time:.1f}s) | Total: {stt_time + rag_time + tts_time:.1f}s\n")
             print("-" * 60 + "\n")

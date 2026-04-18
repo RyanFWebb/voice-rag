@@ -10,6 +10,7 @@ Retrieval uses a two-stage pipeline:
   2. Cross-encoder reranking    → top N_RESULTS (slower, precise)
 """
 
+import re
 import time
 
 import vector_store
@@ -62,9 +63,10 @@ Question: {question}
 Instructions:
 - Use the provided context as your primary source of truth
 - You may supplement with your own knowledge to fill gaps or add clarity, but always defer to the context when there is a conflict
-- You may synthesize and infer from the context (e.g., infer character relationships from dialogue)
+- You may synthesize and infer from the context when needed
 - If the context does not contain relevant information, say so clearly and rely on your own knowledge
-- Answer in 3-5 sentences, covering all key details\
+- Answer only what the question asks. Use as many sentences as the question actually requires.
+- Cite sources inline using the bracket number of each excerpt, e.g. [1] or [2][3]. Place the citation immediately after the claim it supports. Only cite numbers that appear in the context above, and only when the claim actually came from that excerpt.\
 """
 
 
@@ -105,10 +107,10 @@ def generate(
     timings["expand"] = time.time() - t0
 
     context_text = "\n\n---\n\n".join(
-        f"[Source: {c['source']} | "
-        f"Pages: {','.join(str(p) for p in c['pages']) if c['pages'] else 'N/A'}]\n"
+        f"[{i}] Source: {c['source']} | "
+        f"Pages: {','.join(str(p) for p in c['pages']) if c['pages'] else 'N/A'}\n"
         f"{c['text']}"
-        for c in contexts
+        for i, c in enumerate(contexts, 1)
     )
 
     prompt = RAG_PROMPT.format(context=context_text, question=question)
@@ -141,6 +143,24 @@ def print_contexts(contexts: list[dict]) -> None:
         )
         print(f"      Preview: {ctx['text'][:150]}...")
         print()
+
+
+_CITATION_RE = re.compile(r"\s*\[\d+(?:\s*,\s*\d+)*\]")
+
+
+def strip_citations(answer: str) -> str:
+    """Remove inline [N] / [N,M] citation markers so the answer speaks cleanly."""
+    return _CITATION_RE.sub("", answer).strip()
+
+
+def print_sources(contexts: list[dict]) -> None:
+    """
+    Print a compact numbered source list aligned with the inline [N] citations
+    in the answer. Use after printing the answer to fact-check each claim.
+    """
+    for i, ctx in enumerate(contexts, 1):
+        pages = ", ".join(str(p) for p in ctx["pages"]) if ctx["pages"] else "N/A"
+        print(f"  [{i}] {ctx['source']}  (pages {pages}, chunk #{ctx['chunk_index']})")
 
 
 def print_timings(timings: dict) -> None:
