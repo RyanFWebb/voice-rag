@@ -170,6 +170,7 @@ def print_contexts(contexts: list[dict]) -> None:
 
 
 _CITATION_RE = re.compile(r"\s*\[\d+(?:\s*,\s*\d+)*\]")
+_CITATION_NUM_RE = re.compile(r"\d+")
 
 
 def strip_citations(answer: str) -> str:
@@ -177,12 +178,31 @@ def strip_citations(answer: str) -> str:
     return _CITATION_RE.sub("", answer).strip()
 
 
-def print_sources(contexts: list[dict]) -> None:
+def cited_indices(answer: str) -> list[int]:
+    """Return the 1-based source indices that appear in the answer, in ascending order."""
+    seen: set[int] = set()
+    for m in _CITATION_RE.finditer(answer):
+        seen.update(int(n) for n in _CITATION_NUM_RE.findall(m.group()))
+    return sorted(seen)
+
+
+def print_sources(contexts: list[dict], answer: str | None = None) -> None:
     """
     Print a compact numbered source list aligned with the inline [N] citations
-    in the answer. Use after printing the answer to fact-check each claim.
+    in the answer. If answer is provided, show only the sources it actually cites.
     """
-    for i, ctx in enumerate(contexts, 1):
+    if answer is not None:
+        indices = cited_indices(answer)
+        if not indices:
+            print("  (no inline citations in answer)")
+            return
+    else:
+        indices = list(range(1, len(contexts) + 1))
+
+    for i in indices:
+        if not 1 <= i <= len(contexts):
+            continue
+        ctx = contexts[i - 1]
         pages = ", ".join(str(p) for p in ctx["pages"]) if ctx["pages"] else "N/A"
         print(f"  [{i}] {ctx['source']}  (pages {pages}, chunk #{ctx['chunk_index']})")
 

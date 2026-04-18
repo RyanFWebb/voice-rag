@@ -146,7 +146,7 @@ def cmd_query(question: str):
     print(f"\nAnswer:")
     print(result["answer"])
     print("\nSources:")
-    rag.print_sources(result["contexts"])
+    rag.print_sources(result["contexts"], result["answer"])
 
 
 def cmd_voice(audio_input: str | None = None):
@@ -200,7 +200,7 @@ def cmd_voice(audio_input: str | None = None):
             print(f"\nAnswer ({rag_time:.1f}s):")
             print(result["answer"])
             print("\nSources:")
-            rag.print_sources(result["contexts"])
+            rag.print_sources(result["contexts"], result["answer"])
             print("\nRetrieved chunks:")
             rag.print_contexts(result["contexts"])
 
