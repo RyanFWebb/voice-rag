@@ -1,6 +1,9 @@
 # Vector store — regenerate with: python main.py --ingest
 chroma_db/
 
+# Cached map-reduce document summaries — regenerate with: python main.py --summarize
+summaries/
+
 # Documents — may be large or copyrighted; users add their own
 documents/*
 !documents/.gitkeep
