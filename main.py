@@ -3,9 +3,13 @@ main.py — Entry point for the Voice RAG assistant.
 
 Usage:
     python main.py --check                          # verify Python, tools, Ollama
-    python main.py --ingest                         # load docs → chunk → embed → store
+    python main.py --ingest                         # load docs → chunk → embed → store → summarize
     python main.py --ingest --reset                 # wipe collection first, then ingest
+    python main.py --ingest --skip-summary          # ingest without building summaries
+    python main.py --summarize                      # (re)build summaries for already-ingested docs
+    python main.py --summarize --force-summary      # ignore cache and rebuild every summary
     python main.py --query "Who is Alice?"          # single text query, no mic
+    python main.py --query "Summarize the book"     # auto-routed to pre-computed summary
     python main.py --audio test_queries/q01.wav     # run pipeline on a saved WAV file
     python main.py --generate-test-queries          # create test WAV files
     python main.py                                  # live voice loop (mic → answer → speaker)
@@ -50,6 +54,7 @@ import soundfile as sf
 import llm
 import rag
 import speech
+import summarize
 import vector_store
 from config import (
     DOCUMENTS_DIR,
@@ -102,8 +107,8 @@ def cmd_check():
     print("\nDone.")
 
 
-def cmd_ingest(reset: bool = False):
-    """Load all documents from documents/, chunk, embed, and store in ChromaDB."""
+def cmd_ingest(reset: bool = False, skip_summary: bool = False, force_summary: bool = False):
+    """Load all documents from documents/, chunk, embed, store, and summarize."""
     print("=== Ingestion ===\n")
     chunks, df = load_and_chunk_all(DOCUMENTS_DIR)
 
@@ -114,6 +119,13 @@ def cmd_ingest(reset: bool = False):
     print()
     collection = vector_store.get_collection(reset=reset)
     vector_store.upsert_chunks(chunks, collection)
+
+    if skip_summary:
+        print("\nSkipping summarization (--skip-summary).")
+    else:
+        print("\n=== Summarization (map-reduce) ===")
+        summarize.build_all(chunks, force=force_summary)
+
     print("\nIngestion complete.")
 
 
@@ -246,6 +258,12 @@ def parse_args():
                    help="Load, chunk, embed, and store documents in ChromaDB")
     p.add_argument("--reset",  action="store_true",
                    help="Wipe the ChromaDB collection before ingesting")
+    p.add_argument("--skip-summary", action="store_true",
+                   help="Skip map-reduce summarization during --ingest")
+    p.add_argument("--force-summary", action="store_true",
+                   help="Rebuild document summaries even if cached")
+    p.add_argument("--summarize", action="store_true",
+                   help="Build (or rebuild with --force-summary) summaries for ingested docs, then print them")
     p.add_argument("--query",  metavar="TEXT",
                    help="Run a single text query (no microphone)")
     p.add_argument("--audio",  metavar="FILE",
@@ -255,13 +273,48 @@ def parse_args():
     return p.parse_args()
 
 
+def cmd_summarize(force: bool = False):
+    """Build (or reuse) map-reduce summaries for every ingested source."""
+    collection = vector_store.get_collection()
+    if collection.count() == 0:
+        print("Vector store is empty. Run: python main.py --ingest")
+        sys.exit(1)
+
+    # Reconstruct chunks from the collection so we can summarize without
+    # re-reading the raw documents from disk.
+    got = collection.get(include=["documents", "metadatas"])
+    chunks = [
+        {"id": cid, "text": doc, "metadata": meta}
+        for cid, doc, meta in zip(got["ids"], got["documents"], got["metadatas"])
+    ]
+
+    if not chunks:
+        print("No chunks found in the collection.")
+        sys.exit(1)
+
+    print(f"=== Summarization === ({len(chunks)} chunks)\n")
+    results = summarize.build_all(chunks, force=force)
+
+    print("\n=== Document Summaries ===\n")
+    for source, record in results.items():
+        print(f"--- {source} ---")
+        print(record["summary"])
+        print()
+
+
 def main():
     args = parse_args()
 
     if args.check:
         cmd_check()
     elif args.ingest:
-        cmd_ingest(reset=args.reset)
+        cmd_ingest(
+            reset=args.reset,
+            skip_summary=args.skip_summary,
+            force_summary=args.force_summary,
+        )
+    elif args.summarize:
+        cmd_summarize(force=args.force_summary)
     elif args.query:
         cmd_query(args.query)
     elif args.generate_test_queries:
