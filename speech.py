@@ -56,12 +56,10 @@ _whisper_model: WhisperModel | None = None
 _tts_pipeline:  KPipeline | None = None
 
 
-def load_models() -> None:
-    """Load Whisper and Kokoro models into module-level singletons."""
-    global _whisper_model, _tts_pipeline
-
+def load_whisper() -> None:
+    """Load Whisper STT model into a module-level singleton."""
+    global _whisper_model
     _ensure_espeak_on_path()
-
     if _whisper_model is None:
         print(f"Loading Whisper ({WHISPER_MODEL_SIZE}, {WHISPER_DEVICE}, {WHISPER_COMPUTE})...")
         _whisper_model = WhisperModel(
@@ -69,10 +67,21 @@ def load_models() -> None:
         )
         print("Whisper ready.")
 
+
+def load_kokoro() -> None:
+    """Load Kokoro TTS pipeline into a module-level singleton."""
+    global _tts_pipeline
+    _ensure_espeak_on_path()
     if _tts_pipeline is None:
         print("Loading Kokoro TTS...")
         _tts_pipeline = KPipeline(lang_code="a")
         print("Kokoro ready.")
+
+
+def load_models() -> None:
+    """Load both Whisper and Kokoro (used by the CLI voice loop)."""
+    load_whisper()
+    load_kokoro()
 
 
 # STT
@@ -83,7 +92,7 @@ def transcribe(audio_path: str) -> str:
     Calls load_models() automatically if not already loaded.
     """
     if _whisper_model is None:
-        load_models()
+        load_whisper()
     segments, _ = _whisper_model.transcribe(audio_path, language=WHISPER_LANGUAGE)
     return " ".join(seg.text.strip() for seg in segments).strip()
 
@@ -126,7 +135,7 @@ def speak(
     Returns the full audio as a numpy float32 array.
     """
     if _tts_pipeline is None:
-        load_models()
+        load_kokoro()
 
     audio_chunks = []
     stream = sd.OutputStream(
@@ -159,7 +168,7 @@ def synthesize(
     Returns full audio array.
     """
     if _tts_pipeline is None:
-        load_models()
+        load_kokoro()
 
     chunks = []
     for _, _, audio in _tts_pipeline(text, voice=voice, speed=speed):

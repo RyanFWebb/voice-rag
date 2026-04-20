@@ -177,8 +177,8 @@ def voice_query(audio, progress=gr.Progress()):
         tmp_path = tempfile.mktemp(suffix=".wav")
         sf.write(tmp_path, audio_float, sample_rate)
 
-        progress(0.20, desc="Loading speech models (first run ~30s)...")
-        speech.load_models()
+        progress(0.20, desc="Loading Whisper (first run ~30s)...")
+        speech.load_whisper()
 
         progress(0.40, desc="Transcribing with Whisper...")
         question = speech.transcribe(tmp_path)
@@ -296,5 +296,28 @@ with gr.Blocks(title="Voice RAG") as demo:
             )
 
 
+def _prewarm_models() -> None:
+    """Load heavy models once at startup so the first query isn't a cold start.
+
+    Skips Kokoro — the web UI has no voice-out path, so its ~330MB stays unloaded.
+    """
+    print("Pre-warming models...")
+    if _ollama_reachable():
+        try:
+            rag._get_reranker()
+        except Exception as e:
+            print(f"  Reranker pre-warm failed: {e}")
+        try:
+            speech.load_whisper()
+        except Exception as e:
+            print(f"  Whisper pre-warm failed: {e}")
+    else:
+        print("  Ollama not reachable — skipping pre-warm.")
+    print("Pre-warm done.")
+
+
 if __name__ == "__main__":
+    _prewarm_models()
+    # Serialize heavy work so impatient re-clicks don't spawn parallel model loads.
+    demo.queue(default_concurrency_limit=1, max_size=16)
     demo.launch(theme=gr.themes.Soft())
