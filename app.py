@@ -17,13 +17,10 @@ except Exception:
 
 import os
 import shutil
-import tempfile
 import time
 import traceback
 
 import gradio as gr
-import numpy as np
-import soundfile as sf
 
 import llm
 import rag
@@ -72,8 +69,10 @@ def _format_contexts(contexts: list[dict]) -> str:
     lines = []
     for i, ctx in enumerate(contexts, 1):
         pages = ", ".join(str(p) for p in ctx["pages"]) if ctx["pages"] else "N/A"
+        dist = ctx.get("distance")
+        dist_str = f"{dist:.4f}" if isinstance(dist, (int, float)) else "n/a"
         lines.append(
-            f"[{i}] {ctx['source']}  |  Pages: {pages}  |  Distance: {ctx['distance']:.4f}\n"
+            f"[{i}] {ctx['source']}  |  Pages: {pages}  |  Distance: {dist_str}\n"
             f"    {ctx['text'][:250]}{'...' if len(ctx['text']) > 250 else ''}"
         )
     return "\n\n".join(lines)
@@ -157,35 +156,21 @@ def text_query(question: str, progress=gr.Progress()):
 
 
 def voice_query(audio, progress=gr.Progress()):
-    if audio is None:
+    # audio is a filepath string (gr.Audio type="filepath") — Gradio has already
+    # saved the recording to disk, so we don't ship a numpy array over the
+    # websocket or keep one in the browser component's state.
+    if not audio:
         return "No audio recorded.", "", "", ""
 
     if not _ollama_reachable():
         return "", OLLAMA_HELP, "", ""
 
     try:
-        progress(0.05, desc="Saving audio...")
-        sample_rate, audio_data = audio
-
-        if audio_data.dtype == np.int16:
-            audio_float = audio_data.astype(np.float32) / 32768.0
-        else:
-            audio_float = audio_data.astype(np.float32)
-        if audio_float.ndim == 2:
-            audio_float = audio_float.mean(axis=1)
-
-        tmp_path = tempfile.mktemp(suffix=".wav")
-        sf.write(tmp_path, audio_float, sample_rate)
-
         progress(0.20, desc="Loading Whisper (first run ~30s)...")
         speech.load_whisper()
 
         progress(0.40, desc="Transcribing with Whisper...")
-        question = speech.transcribe(tmp_path)
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+        question = speech.transcribe(audio)
 
         if not question.strip():
             return "No speech detected — please try again.", "", "", ""
@@ -219,12 +204,18 @@ with gr.Blocks(title="Voice RAG") as demo:
     gr.Markdown("Ask questions about your documents using text or your microphone.")
 
     with gr.Row():
+        # Compute once at build time. Passing a callable here makes Gradio run
+        # it as a load event on every (re)connect, which re-opens Chroma +
+        # re-pings Ollama and can back up behind a queued query.
         status_box = gr.Textbox(
             label="Vector Store Status",
-            value=_collection_status,
+            value=_collection_status(),
             interactive=False,
             max_lines=1,
+            scale=4,
         )
+        refresh_btn = gr.Button("Refresh", scale=1)
+        refresh_btn.click(fn=_collection_status, inputs=None, outputs=status_box)
 
     with gr.Tabs():
 
@@ -280,7 +271,7 @@ with gr.Blocks(title="Voice RAG") as demo:
             mic_input = gr.Audio(
                 label="Record Question",
                 sources=["microphone"],
-                type="numpy",
+                type="filepath",
             )
             voice_btn = gr.Button("Transcribe & Ask", variant="primary")
             voice_transcription = gr.Textbox(label="Transcription", interactive=False, lines=2)

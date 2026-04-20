@@ -10,7 +10,8 @@
       "Bash(powershell *)",
       "Bash(rm -f app_error.log app_log.txt)",
       "Bash(\"C:\\\\Users\\\\HP 15 EG1001TU\\\\anaconda3\\\\anaconda\\\\envs\\\\voicerag\\\\python.exe\" app.py)",
-      "Bash(where ollama *)"
+      "Bash(where ollama *)",
+      "Bash(\"c:/Users/HP 15 EG1001TU/Documents/NLP/voice-rag/.venv/Scripts/python.exe\" -c \"import gradio; print\\('gradio', gradio.__version__\\)\")"
     ]
   }
 }
