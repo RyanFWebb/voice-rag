@@ -27,3 +27,4 @@ chromadb
 langchain-text-splitters
 pymupdf
 pandas
+sentence-transformers

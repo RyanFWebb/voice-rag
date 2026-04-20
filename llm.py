@@ -25,11 +25,26 @@ def check_ollama() -> list[str]:
     return [m["name"] for m in r.json().get("models", [])]
 
 
-def generate(prompt: str, model: str = GEN_MODEL) -> str:
-    """Send a prompt to Ollama and return the response string."""
+_DEFAULT_OPTIONS = {"temperature": 0.0, "top_k": 20, "num_ctx": 4096}
+
+
+def generate(prompt: str, model: str = GEN_MODEL, options: dict | None = None) -> str:
+    """
+    Send a prompt to Ollama and return the response string.
+
+    options: per-call overrides merged on top of _DEFAULT_OPTIONS. Useful for
+    cases that need a longer response (num_predict) or different context size.
+    """
+    merged = {**_DEFAULT_OPTIONS, **(options or {})}
     r = requests.post(
         f"{OLLAMA_BASE_URL}/api/generate",
-        json={"model": model, "prompt": prompt, "stream": False},
+        json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "keep_alive": "30m",
+            "options": merged,
+        },
         timeout=OLLAMA_TIMEOUT,
     )
     r.raise_for_status()
@@ -51,7 +66,7 @@ def embed(texts: list[str] | str, model: str = EMBED_MODEL) -> list[list[float]]
         batch = texts[i : i + EMBED_BATCH]
         r = requests.post(
             f"{OLLAMA_BASE_URL}/api/embed",
-            json={"model": model, "input": batch},
+            json={"model": model, "input": batch, "keep_alive": "30m"},
             timeout=OLLAMA_TIMEOUT,
         )
         r.raise_for_status()

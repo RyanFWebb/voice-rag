@@ -4,14 +4,28 @@ Edit this file to change models, paths, and tuning parameters.
 """
 
 import platform
+import shutil
+
+def _detect_gpu() -> tuple[str, str]:
+    """Return (device, compute_type) — prefer CUDA if available."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda", "float16"
+    except ImportError:
+        pass
+    return "cpu", "int8"
+
+_WHISPER_DEVICE, _WHISPER_COMPUTE = _detect_gpu()
 
 # Models
-WHISPER_MODEL_SIZE  = "base"          # tiny | base | small | medium | large
-WHISPER_COMPUTE     = "int8"          # int8 (CPU) | float16 (GPU)
-WHISPER_DEVICE      = "cpu"
+WHISPER_MODEL_SIZE  = "base"              # tiny | base | small | medium | large
+WHISPER_COMPUTE     = _WHISPER_COMPUTE    # int8 (CPU) | float16 (GPU)
+WHISPER_DEVICE      = _WHISPER_DEVICE     # auto-detected: cpu or cuda
+WHISPER_LANGUAGE    = "en"                # skip language detection → faster + more accurate
 
 GEN_MODEL   = "gemma3:4b"            # any model pulled in Ollama
-EMBED_MODEL = "nomic-embed-text"     # must be pulled in Ollama
+EMBED_MODEL = "mxbai-embed-large"    # must be pulled in Ollama
 
 TTS_VOICE   = "af_heart"             # Kokoro voice ID
 TTS_SPEED   = 1.0
@@ -21,6 +35,7 @@ TTS_SAMPLE_RATE = 24000
 DOCUMENTS_DIR   = "./documents"
 CHROMA_PATH     = "./chroma_db"
 TEST_QUERY_DIR  = "./test_queries"
+SUMMARY_CACHE_DIR = "./summaries"
 
 # ChromaDB
 COLLECTION_NAME = "rag_documents"
@@ -30,8 +45,22 @@ CHUNK_SIZE    = 1000   # characters (~200 words)
 CHUNK_OVERLAP = 150
 
 # Retrieval
-N_RESULTS   = 5
+N_RESULTS   = 3
+N_RETRIEVE  = 20       # initial candidates before reranking
 EMBED_BATCH = 32       # chunks per Ollama embed request
+
+# Reranking
+RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+# Chunk expansion — fetch N neighbors on each side of a retrieved chunk
+NEIGHBOR_WINDOW = 1   # 1 = include 1 chunk before + 1 after each hit
+
+# Summarization (map-reduce over document chunks at ingestion time)
+SUMMARY_MAP_BATCH    = 5    # chunks per section summary (map stage)
+SUMMARY_REDUCE_BATCH = 40   # section summaries fed to final reduce directly
+                            # (larger = fewer intermediate folds = less detail loss)
+SUMMARY_MODEL        = GEN_MODEL  # reuse the generation model by default
+SUMMARY_CTX          = 8192       # num_ctx for reduce calls (handles bigger batches)
 
 # Recording
 RECORD_SECONDS = 7
