@@ -59,7 +59,15 @@ python main.py --check
 
 ## Usage
 
-### Ingest documents
+### User Interface
+Run the following:
+```bash
+python app.py
+```
+*Connect to http://localhost:7860*
+
+### Command Line
+#### Ingest documents
 
 Drop `.pdf` or `.txt` files into `documents/`, then:
 
@@ -74,14 +82,14 @@ python main.py --ingest --reset            # wipe ChromaDB first
 python main.py --ingest --skip-summary     # chunk/embed only, no summaries
 ```
 
-### (Re)build summaries without re-ingesting
+#### (Re)build summaries without re-ingesting
 
 ```bash
 python main.py --summarize                 # uses cached summaries if present
 python main.py --summarize --force-summary # ignore cache, rebuild every summary
 ```
 
-### Ask a text question (no microphone needed)
+#### Ask a text question (no microphone needed)
 
 ```bash
 python main.py --query "Who is the main character and how are they introduced?"
@@ -90,7 +98,7 @@ python main.py --query "Summarize the book"      # auto-routed to the cached sum
 
 Answers include inline `[N]` citations; a numbered source list (only sources actually cited) is printed underneath the answer for quick fact-checking.
 
-### Live voice loop
+#### Live voice loop
 
 ```bash
 python main.py
@@ -98,13 +106,13 @@ python main.py
 
 Speak your question when prompted. Press `Ctrl-C` to quit.
 
-### Replay a saved query file
+#### Replay a saved query file
 
 ```bash
 python main.py --audio test_queries/q01_character_intro.wav
 ```
 
-### Generate test query WAV files
+#### Generate test query WAV files
 
 ```bash
 python main.py --generate-test-queries
