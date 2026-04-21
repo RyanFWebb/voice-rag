@@ -30,9 +30,7 @@ from config import DOCUMENTS_DIR, N_RESULTS
 from ingest import load_and_chunk_all
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 OLLAMA_HELP = (
     "Ollama is not running. This app needs Ollama for embeddings and generation.\n"
@@ -78,9 +76,7 @@ def _format_contexts(contexts: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
 # Event handlers  (plain functions, not generators — Gradio 6 compatible)
-# ---------------------------------------------------------------------------
 
 def upload_and_ingest(files, reset_flag: bool, progress=gr.Progress()):
     if not files:
@@ -195,9 +191,7 @@ def voice_query(audio, progress=gr.Progress()):
         return f"Error: {e}", "", "", ""
 
 
-# ---------------------------------------------------------------------------
 # UI layout
-# ---------------------------------------------------------------------------
 
 with gr.Blocks(title="Voice RAG") as demo:
     gr.Markdown("# Voice RAG Assistant")
@@ -219,7 +213,7 @@ with gr.Blocks(title="Voice RAG") as demo:
 
     with gr.Tabs():
 
-        # ── Documents ──────────────────────────────────────────────────────
+        # Documents
         with gr.Tab("Documents"):
             gr.Markdown("Upload PDF or TXT files, then click **Ingest Documents** to index them.")
             file_upload = gr.File(
@@ -240,7 +234,7 @@ with gr.Blocks(title="Voice RAG") as demo:
                 outputs=[ingest_status, status_box],
             )
 
-        # ── Text Query ─────────────────────────────────────────────────────
+        # Text Query 
         with gr.Tab("Text Query"):
             gr.Markdown("Type your question and press **Enter** or click **Ask**.")
             text_input = gr.Textbox(
@@ -265,7 +259,7 @@ with gr.Blocks(title="Voice RAG") as demo:
                 outputs=[text_answer, text_time, text_contexts],
             )
 
-        # ── Voice Query ────────────────────────────────────────────────────
+        # Voice Query
         with gr.Tab("Voice Query"):
             gr.Markdown("Record your question, then press **Transcribe & Ask**.")
             mic_input = gr.Audio(
