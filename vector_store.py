@@ -5,6 +5,9 @@ Handles collection creation, batch upsert, and semantic query.
 The collection uses cosine similarity (hnsw:space = cosine).
 """
 
+import os
+import shutil
+
 import time
 import chromadb
 from config import CHROMA_PATH, COLLECTION_NAME, N_RESULTS, N_RETRIEVE, NEIGHBOR_WINDOW
@@ -12,22 +15,19 @@ import llm
 
 
 def get_collection(reset: bool = False) -> chromadb.Collection:
-    """
-    Return (or create) the persistent ChromaDB collection.
+    if reset and os.path.isdir(CHROMA_PATH):
+        for item in os.listdir(CHROMA_PATH):
+            item_path = os.path.join(CHROMA_PATH, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
+        print(f"Wiped contents of ChromaDB folder: {CHROMA_PATH}/")
 
-    Args:
-        reset: If True, delete and recreate the collection.
-               Use this when re-ingesting from scratch.
-    """
+    # Force chromadb to release any cached system client for this path
+    chromadb.api.client.SharedSystemClient.clear_system_cache()
+
     client = chromadb.PersistentClient(path=CHROMA_PATH)
-
-    if reset:
-        try:
-            client.delete_collection(COLLECTION_NAME)
-            print(f"Deleted existing collection '{COLLECTION_NAME}'")
-        except Exception:
-            pass
-
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},

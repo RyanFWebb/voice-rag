@@ -264,6 +264,19 @@ def save_summary(record: dict) -> str:
         json.dump(record, f, indent=2, ensure_ascii=False)
     return path
 
+def clear_cache() -> int:
+    """
+    Delete all cached summary JSON files from SUMMARY_CACHE_DIR.
+    Returns the number of files removed.
+    """
+    if not os.path.isdir(SUMMARY_CACHE_DIR):
+        return 0
+    removed = 0
+    for fname in os.listdir(SUMMARY_CACHE_DIR):
+        if fname.endswith(".json"):
+            os.remove(os.path.join(SUMMARY_CACHE_DIR, fname))
+            removed += 1
+    return removed
 
 # Map-reduce
 

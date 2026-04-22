@@ -38,7 +38,7 @@ TEST_QUERY_DIR  = "./test_queries"
 SUMMARY_CACHE_DIR = "./summaries"
 
 # ChromaDB
-COLLECTION_NAME = "rag_documents"
+COLLECTION_NAME = "chroma_db"
 
 # Chunking
 CHUNK_SIZE    = 1000   # characters (~200 words)

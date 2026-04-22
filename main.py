@@ -47,6 +47,7 @@ if (_MAJOR, _MINOR) >= (3, 13):
 
 import argparse
 import os
+import shutil
 import time
 
 import soundfile as sf
@@ -58,6 +59,7 @@ import summarize
 import vector_store
 from config import (
     DOCUMENTS_DIR,
+    SUMMARY_CACHE_DIR,
     TEST_QUERY_DIR,
     N_RESULTS,
     RECORD_SECONDS,
@@ -107,6 +109,17 @@ def cmd_check():
     print("\nDone.")
 
 
+def _clear_on_reset() -> None:
+    """
+    Clear all derived data when --reset is used:
+      - summaries/   cached map-reduce summary JSON files
+      - chroma_db/   handled separately by vector_store.get_collection(reset=True)
+    Source documents in documents/ are left untouched.
+    """
+    removed = summarize.clear_cache()
+    print(f"Cleared {removed} cached summary file(s) from {SUMMARY_CACHE_DIR}/")
+
+
 def cmd_ingest(reset: bool = False, skip_summary: bool = False, force_summary: bool = False):
     """Load all documents from documents/, chunk, embed, store, and summarize."""
     print("=== Ingestion ===\n")
@@ -117,6 +130,9 @@ def cmd_ingest(reset: bool = False, skip_summary: bool = False, force_summary: b
         sys.exit(1)
 
     print()
+    if reset:
+        _clear_on_reset()
+
     collection = vector_store.get_collection(reset=reset)
     vector_store.upsert_chunks(chunks, collection)
 
@@ -244,35 +260,6 @@ def cmd_generate_test_queries():
     print(f"\nDone. Run with: python main.py --audio {TEST_QUERY_DIR}/<name>.wav")
 
 
-# CLI
-
-def parse_args():
-    p = argparse.ArgumentParser(
-        description="Voice RAG assistant — Whisper STT -> ChromaDB -> Ollama -> Kokoro TTS",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    p.add_argument("--check",  action="store_true",
-                   help="Check Python version, external tools, and Ollama")
-    p.add_argument("--ingest", action="store_true",
-                   help="Load, chunk, embed, and store documents in ChromaDB")
-    p.add_argument("--reset",  action="store_true",
-                   help="Wipe the ChromaDB collection before ingesting")
-    p.add_argument("--skip-summary", action="store_true",
-                   help="Skip map-reduce summarization during --ingest")
-    p.add_argument("--force-summary", action="store_true",
-                   help="Rebuild document summaries even if cached")
-    p.add_argument("--summarize", action="store_true",
-                   help="Build (or rebuild with --force-summary) summaries for ingested docs, then print them")
-    p.add_argument("--query",  metavar="TEXT",
-                   help="Run a single text query (no microphone)")
-    p.add_argument("--audio",  metavar="FILE",
-                   help="Run the full pipeline on a pre-recorded WAV file")
-    p.add_argument("--generate-test-queries", action="store_true",
-                   help="Generate generic test query WAV files using TTS")
-    return p.parse_args()
-
-
 def cmd_summarize(force: bool = False):
     """Build (or reuse) map-reduce summaries for every ingested source."""
     collection = vector_store.get_collection()
@@ -300,6 +287,35 @@ def cmd_summarize(force: bool = False):
         print(f"--- {source} ---")
         print(record["summary"])
         print()
+
+
+# CLI
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Voice RAG assistant — Whisper STT -> ChromaDB -> Ollama -> Kokoro TTS",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument("--check",  action="store_true",
+                   help="Check Python version, external tools, and Ollama")
+    p.add_argument("--ingest", action="store_true",
+                   help="Load, chunk, embed, and store documents in ChromaDB")
+    p.add_argument("--reset",  action="store_true",
+                   help="Wipe the ChromaDB collection and summary cache before ingesting")
+    p.add_argument("--skip-summary", action="store_true",
+                   help="Skip map-reduce summarization during --ingest")
+    p.add_argument("--force-summary", action="store_true",
+                   help="Rebuild document summaries even if cached")
+    p.add_argument("--summarize", action="store_true",
+                   help="Build (or rebuild with --force-summary) summaries for ingested docs")
+    p.add_argument("--query",  metavar="TEXT",
+                   help="Run a single text query (no microphone)")
+    p.add_argument("--audio",  metavar="FILE",
+                   help="Run the full pipeline on a pre-recorded WAV file")
+    p.add_argument("--generate-test-queries", action="store_true",
+                   help="Generate generic test query WAV files using TTS")
+    return p.parse_args()
 
 
 def main():

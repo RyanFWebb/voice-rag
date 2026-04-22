@@ -88,24 +88,49 @@ def upload_and_ingest(files, reset_flag: bool, progress=gr.Progress()):
     try:
         os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 
-        progress(0.05, desc="Copying files to documents/...")
+        # Step 1: clear old documents before copying new ones
+        if reset_flag:
+            progress(0.03, desc="Clearing old documents...")
+            for fname in os.listdir(DOCUMENTS_DIR):
+                if fname == ".gitkeep":
+                    continue
+                fpath = os.path.join(DOCUMENTS_DIR, fname)
+                if os.path.isfile(fpath):
+                    os.remove(fpath)
+
+        # Step 2: copy new uploads into documents/
+        progress(0.08, desc="Copying files to documents/...")
         uploaded = []
         for f in files:
-            # Gradio 6 passes file paths as plain strings
             fpath = f if isinstance(f, str) else getattr(f, "name", str(f))
             fname = os.path.basename(fpath)
             dest = os.path.join(DOCUMENTS_DIR, fname)
             shutil.copy(fpath, dest)
             uploaded.append(fname)
 
-        progress(0.25, desc="Loading and chunking documents...")
+        # Step 3: wipe summary cache
+        if reset_flag:
+            progress(0.12, desc="Clearing summary cache...")
+            import summarize as _summarize
+            cleared = _summarize.clear_cache()
+            if cleared:
+                print(f"Cleared {cleared} cached summary file(s).")
+
+        # Step 4: chunk new documents
+        progress(0.20, desc="Loading and chunking documents...")
         chunks, _ = load_and_chunk_all(DOCUMENTS_DIR)
         if not chunks:
             return "No supported documents found in documents/.", _collection_status()
 
-        progress(0.55, desc=f"Embedding {len(chunks)} chunks — this may take a minute...")
+        # Step 5: wipe ChromaDB and embed
+        progress(0.40, desc=f"Embedding {len(chunks)} chunks — this may take a minute...")
         collection = vector_store.get_collection(reset=reset_flag)
         vector_store.upsert_chunks(chunks, collection)
+
+        # Step 6: build summaries for new documents
+        progress(0.85, desc="Building document summaries...")
+        import summarize as _summarize
+        _summarize.build_all(chunks)
 
         progress(1.0, desc="Ingestion complete!")
         summary = (
@@ -222,7 +247,7 @@ with gr.Blocks(title="Voice RAG") as demo:
                 file_count="multiple",
             )
             reset_check = gr.Checkbox(
-                label="Reset vector store before ingesting (wipes existing index)",
+                label="Reset before ingesting (wipes vector store and summary cache)",
                 value=False,
             )
             ingest_btn = gr.Button("Ingest Documents", variant="primary")
