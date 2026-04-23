@@ -63,9 +63,9 @@ Question: {question}
 
 Instructions:
 - Use the provided context as your primary source of truth
+- If the context does not contain relevant information, state that the question is not described in the provided context and rely on your own knowledge (if the question is related to the context)
 - You may supplement with your own knowledge to fill gaps or add clarity, but always defer to the context when there is a conflict
 - You may synthesize and infer from the context when needed
-- If the context does not contain relevant information, say so clearly and rely on your own knowledge
 - Answer only what the question asks. Use as many sentences as the question actually requires.
 - Cite sources inline using the bracket number of each excerpt, e.g. [1] or [2][3]. Place the citation immediately after the claim it supports. Only cite numbers that appear in the context above, and only when the claim actually came from that excerpt.\
 """

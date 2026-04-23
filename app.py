@@ -177,9 +177,6 @@ def text_query(question: str, progress=gr.Progress()):
 
 
 def voice_query(audio, progress=gr.Progress()):
-    # audio is a filepath string (gr.Audio type="filepath") — Gradio has already
-    # saved the recording to disk, so we don't ship a numpy array over the
-    # websocket or keep one in the browser component's state.
     if not audio:
         return "No audio recorded.", "", "", ""
 
@@ -205,6 +202,11 @@ def voice_query(audio, progress=gr.Progress()):
         t0 = time.time()
         result = rag.generate(question, collection, n_results=N_RESULTS)
         elapsed = time.time() - t0
+
+        progress(0.90, desc="Speaking answer...")
+        speech.load_kokoro()
+        reply_path = "rag_voice_reply.wav"
+        speech.speak(rag.strip_citations(result["answer"]), output_path=reply_path)
 
         progress(1.0, desc="Done!")
         return question, result["answer"], f"{elapsed:.1f}s", _format_contexts(result["contexts"])
@@ -271,7 +273,7 @@ with gr.Blocks(title="Voice RAG") as demo:
             with gr.Row():
                 text_answer = gr.Textbox(label="Answer", interactive=False, lines=5, scale=4)
                 text_time   = gr.Textbox(label="Time", interactive=False, max_lines=1, scale=1)
-            text_contexts = gr.Textbox(label="Retrieved Chunks", interactive=False, lines=8)
+            text_contexts = gr.Textbox(label="Retrieved Chunks", interactive=False, lines=8, max_lines=20)
 
             text_btn.click(
                 fn=text_query,
@@ -297,7 +299,7 @@ with gr.Blocks(title="Voice RAG") as demo:
             with gr.Row():
                 voice_answer = gr.Textbox(label="Answer", interactive=False, lines=5, scale=4)
                 voice_time   = gr.Textbox(label="Time", interactive=False, max_lines=1, scale=1)
-            voice_contexts = gr.Textbox(label="Retrieved Chunks", interactive=False, lines=8)
+            voice_contexts = gr.Textbox(label="Retrieved Chunks", interactive=False, lines=8, max_lines=20)
 
             voice_btn.click(
                 fn=voice_query,
